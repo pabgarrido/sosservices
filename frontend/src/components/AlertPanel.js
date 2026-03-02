@@ -22,6 +22,17 @@ function AlertPanel({ alerts, onSelect }) {
     return (order[b.level] || 0) - (order[a.level] || 0);
   });
 
+  const handleSelect = (alert) => {
+    if (onSelect) onSelect(alert);
+  };
+
+  const handleKeySelect = (event, alert) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleSelect(alert);
+    }
+  };
+
   return (
     <div className="alert-panel">
       <h2>Hazard Alerts ({alerts.length})</h2>
@@ -30,8 +41,12 @@ function AlertPanel({ alerts, onSelect }) {
           <div
             key={alert.id}
             className={`alert-item alert-${alert.level}`}
-            onClick={() => onSelect(alert)}
+            onClick={() => handleSelect(alert)}
+            onKeyDown={(event) => handleKeySelect(event, alert)}
             style={{ borderLeftColor: LEVEL_COLORS[alert.level] || '#95a5a6' }}
+            role="button"
+            tabIndex={0}
+            aria-label={`${alert.level} alert: ${alert.title}`}
           >
             <div className="alert-header">
               <span className="alert-icon">{LEVEL_ICONS[alert.level] || '○'}</span>
@@ -40,7 +55,9 @@ function AlertPanel({ alerts, onSelect }) {
               </span>
             </div>
             <h3 className="alert-title">{alert.title}</h3>
-            <p className="alert-desc">{alert.description.substring(0, 120)}...</p>
+            <p className="alert-desc">
+              {alert.description.length > 120 ? `${alert.description.substring(0, 120)}...` : alert.description}
+            </p>
             <div className="alert-footer">
               <span>{alert.contributing_events.length} events</span>
               <span>{alert.radius_km.toFixed(0)} km radius</span>

@@ -81,6 +81,13 @@ function AnalyticsPanel({ summary, hazardScores, onLocateEvent }) {
     }
   };
 
+  const handleCardKeyDown = (event, onActivate) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onActivate();
+    }
+  };
+
   return (
     <div className="analytics-panel">
       <h2>Predictive Analytics</h2>
@@ -106,22 +113,31 @@ function AnalyticsPanel({ summary, hazardScores, onLocateEvent }) {
       </div>
 
       {/* Tab navigation */}
-      <div className="analytics-tabs">
+      <div className="analytics-tabs" role="tablist" aria-label="Analytics views">
         <button
           className={`analytics-tab ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
+          role="tab"
+          aria-selected={activeTab === 'overview'}
+          aria-controls="analytics-overview"
         >
           Overview
         </button>
         <button
           className={`analytics-tab ${activeTab === 'hazards' ? 'active' : ''}`}
           onClick={() => setActiveTab('hazards')}
+          role="tab"
+          aria-selected={activeTab === 'hazards'}
+          aria-controls="analytics-hazards"
         >
           Top Hazards
         </button>
         <button
           className={`analytics-tab ${activeTab === 'cross' ? 'active' : ''}`}
           onClick={() => setActiveTab('cross')}
+          role="tab"
+          aria-selected={activeTab === 'cross'}
+          aria-controls="analytics-cross"
         >
           Cross-Domain
         </button>
@@ -130,7 +146,10 @@ function AnalyticsPanel({ summary, hazardScores, onLocateEvent }) {
       {/* Tab content */}
       <div className="analytics-content">
         {activeTab === 'overview' && (
-          <div className="analytics-overview">
+          <div className="analytics-overview" id="analytics-overview" role="tabpanel">
+            {totalEvents === 0 && (
+              <p className="no-data">No analytics yet. Keep the app live for a moment while events are collected.</p>
+            )}
             {/* Level distribution */}
             <div className="level-distribution">
               <h4>Risk Distribution</h4>
@@ -177,9 +196,9 @@ function AnalyticsPanel({ summary, hazardScores, onLocateEvent }) {
         )}
 
         {activeTab === 'hazards' && (
-          <div className="hazards-list">
+          <div className="hazards-list" id="analytics-hazards" role="tabpanel">
             {topHazards.length === 0 && (
-              <p className="no-data">No hazards scored yet.</p>
+              <p className="no-data">No top hazards yet. Enable more layers or wait for new events to be scored.</p>
             )}
             {topHazards.map((h, i) => {
               const isExpanded = expandedHazard === h.event_id;
@@ -189,6 +208,11 @@ function AnalyticsPanel({ summary, hazardScores, onLocateEvent }) {
                   className={`hazard-item ${isExpanded ? 'expanded' : ''}`}
                   style={{ borderLeftColor: LEVEL_COLORS[h.level] }}
                   onClick={() => setExpandedHazard(isExpanded ? null : h.event_id)}
+                  onKeyDown={(event) => handleCardKeyDown(event, () => setExpandedHazard(isExpanded ? null : h.event_id))}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  aria-label={`Hazard ${h.title} with score ${h.score.toFixed(0)}`}
                 >
                   <div className="hazard-header">
                     <span className="hazard-rank">#{i + 1}</span>
@@ -267,16 +291,20 @@ function AnalyticsPanel({ summary, hazardScores, onLocateEvent }) {
         )}
 
         {activeTab === 'cross' && (
-          <div className="cross-domain-list">
+          <div className="cross-domain-list" id="analytics-cross" role="tabpanel">
             {crossDomain.length === 0 && (
-              <p className="no-data">No cross-domain correlations detected.</p>
+              <p className="no-data">No cross-domain correlations yet. Correlations appear when risks overlap across categories.</p>
             )}
             {crossDomain.map((cd, i) => (
               <div
                 key={(cd.event_id || '') + i}
                 className="cross-item"
                 onClick={() => cd.location && handleLocate(cd)}
+                onKeyDown={(event) => cd.location && handleCardKeyDown(event, () => handleLocate(cd))}
                 style={{ cursor: cd.location ? 'pointer' : 'default' }}
+                role={cd.location ? 'button' : undefined}
+                tabIndex={cd.location ? 0 : undefined}
+                aria-label={cd.location ? `Locate correlation ${cd.title} on map` : undefined}
               >
                 <div className="cross-header">
                   <span className="cross-score" style={{

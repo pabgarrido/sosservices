@@ -33,6 +33,15 @@ function App() {
   const [timeRange, setTimeRange] = useState(null);
   const [timePosition, setTimePosition] = useState(null); // null = "live"
   const [flyToLocation, setFlyToLocation] = useState(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [mapDetailMode, setMapDetailMode] = useState('high'); // 'standard' | 'high'
+  const [mapLegendVisible, setMapLegendVisible] = useState(() => {
+    try {
+      return localStorage.getItem('mapLegendVisible') !== 'false';
+    } catch {
+      return true;
+    }
+  });
 
   // Handler for analytics "Locate on Map" — fly to event location
   const handleLocateEvent = useCallback((location, eventId) => {
@@ -54,6 +63,14 @@ function App() {
   useEffect(() => {
     setIsConnected(connected);
   }, [connected]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mapLegendVisible', String(mapLegendVisible));
+    } catch {
+      // ignore storage unavailability
+    }
+  }, [mapLegendVisible]);
 
   // Compute time window params for API calls based on slider position
   const timeWindowParams = useMemo(() => {
@@ -82,6 +99,8 @@ function App() {
         setStatus(sts);
       } catch (err) {
         console.error('Failed to load initial data:', err);
+      } finally {
+        setIsInitialLoading(false);
       }
 
       // Load analytics + time range data (non-blocking)
@@ -307,7 +326,7 @@ function App() {
           <span className="subtitle">Portugal Real-Time Hazard Monitor</span>
         </div>
         <div className="header-right">
-          <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+          <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`} aria-live="polite">
             {isConnected ? '● Live' : '○ Offline'}
           </span>
           <span className="event-count">{events.length} events</span>
@@ -326,55 +345,107 @@ function App() {
       <div className="app-body">
         <aside className="sidebar">
           {/* Sidebar tab switcher */}
-          <div className="sidebar-tabs">
+          <div className="sidebar-tabs" role="tablist" aria-label="Sidebar views">
             <button
               className={`sidebar-tab ${sidebarTab === 'layers' ? 'active' : ''}`}
               onClick={() => setSidebarTab('layers')}
+              role="tab"
+              aria-selected={sidebarTab === 'layers'}
+              aria-controls="sidebar-layers"
             >
               Layers & Alerts
             </button>
             <button
               className={`sidebar-tab ${sidebarTab === 'analytics' ? 'active' : ''}`}
               onClick={() => setSidebarTab('analytics')}
+              role="tab"
+              aria-selected={sidebarTab === 'analytics'}
+              aria-controls="sidebar-analytics"
             >
               Analytics
             </button>
           </div>
 
           {sidebarTab === 'layers' && (
-            <>
-              <LayerControl
-                layers={layers}
-                activeLayers={activeLayers}
-                onToggle={toggleLayer}
-                trafficSublayers={trafficSublayerInfo}
-                onToggleTrafficSublayer={toggleTrafficSublayer}
-                eventSublayers={eventSublayerInfo}
-                onToggleEventSublayer={toggleEventSublayer}
-              />
-              {/* Risk Zones toggle */}
-              <div className="risk-zone-toggle">
-                <label className="layer-item">
-                  <input
-                    type="checkbox"
-                    checked={showRiskZones}
-                    onChange={() => setShowRiskZones(!showRiskZones)}
+            <div id="sidebar-layers" role="tabpanel">
+              {isInitialLoading ? (
+                <div className="sidebar-loading" aria-live="polite">
+                  <div className="loading-block loading-title" />
+                  <div className="loading-block" />
+                  <div className="loading-block" />
+                  <div className="loading-block" />
+                  <div className="loading-separator" />
+                  <div className="loading-block loading-title" />
+                  <div className="loading-card" />
+                  <div className="loading-card" />
+                </div>
+              ) : (
+                <>
+                  <LayerControl
+                    layers={layers}
+                    activeLayers={activeLayers}
+                    onToggle={toggleLayer}
+                    trafficSublayers={trafficSublayerInfo}
+                    onToggleTrafficSublayer={toggleTrafficSublayer}
+                    eventSublayers={eventSublayerInfo}
+                    onToggleEventSublayer={toggleEventSublayer}
                   />
-                  <span className="layer-color" style={{ backgroundColor: '#e74c3c' }} />
-                  <span className="layer-name">Risk Zones</span>
-                  <span className="layer-count">{riskZones.length}</span>
-                </label>
-              </div>
-              <AlertPanel alerts={alerts} onSelect={setSelectedAlert} />
-            </>
+                  {/* Risk Zones toggle */}
+                  <div className="risk-zone-toggle">
+                    <label className="layer-item">
+                      <input
+                        type="checkbox"
+                        checked={showRiskZones}
+                        onChange={() => setShowRiskZones(!showRiskZones)}
+                      />
+                      <span className="layer-color" style={{ backgroundColor: '#e74c3c' }} />
+                      <span className="layer-name">Risk Zones</span>
+                      <span className="layer-count">{riskZones.length}</span>
+                    </label>
+                  </div>
+                  <div className="map-detail-toggle" role="group" aria-label="Map detail mode">
+                    <span className="map-detail-label">Map detail</span>
+                    <div className="map-detail-buttons">
+                      <button
+                        className={`map-detail-btn ${mapDetailMode === 'standard' ? 'active' : ''}`}
+                        onClick={() => setMapDetailMode('standard')}
+                        aria-pressed={mapDetailMode === 'standard'}
+                      >
+                        Standard
+                      </button>
+                      <button
+                        className={`map-detail-btn ${mapDetailMode === 'high' ? 'active' : ''}`}
+                        onClick={() => setMapDetailMode('high')}
+                        aria-pressed={mapDetailMode === 'high'}
+                      >
+                        High Detail
+                      </button>
+                    </div>
+                  </div>
+                  <AlertPanel alerts={alerts} onSelect={setSelectedAlert} />
+                </>
+              )}
+            </div>
           )}
 
           {sidebarTab === 'analytics' && (
-            <AnalyticsPanel
-              summary={analyticsSummary}
-              hazardScores={hazardScores}
-              onLocateEvent={handleLocateEvent}
-            />
+            <div id="sidebar-analytics" role="tabpanel">
+              {isInitialLoading ? (
+                <div className="sidebar-loading" aria-live="polite">
+                  <div className="loading-block loading-title" />
+                  <div className="loading-gauge" />
+                  <div className="loading-tabs" />
+                  <div className="loading-card" />
+                  <div className="loading-card" />
+                </div>
+              ) : (
+                <AnalyticsPanel
+                  summary={analyticsSummary}
+                  hazardScores={hazardScores}
+                  onLocateEvent={handleLocateEvent}
+                />
+              )}
+            </div>
           )}
         </aside>
 
@@ -388,7 +459,28 @@ function App() {
             hazardScoreMap={hazardScoreMap}
             timePosition={timePosition}
             flyToLocation={flyToLocation}
+            mapDetailMode={mapDetailMode}
           />
+          {mapLegendVisible && (
+            <div className="map-detail-legend" aria-live="polite">
+              <div className="map-detail-legend-header">
+                <strong>{mapDetailMode === 'high' ? 'High Detail Map' : 'Standard Map'}</strong>
+                <button
+                  className="map-detail-legend-close"
+                  onClick={() => setMapLegendVisible(false)}
+                  aria-label="Dismiss map detail help"
+                  title="Hide help"
+                >
+                  ×
+                </button>
+              </div>
+              <span>
+                {mapDetailMode === 'high'
+                  ? 'Road labels + rail lines enabled for precision analysis.'
+                  : 'Base map only for lighter rendering performance.'}
+              </span>
+            </div>
+          )}
           <div className="time-slider-overlay">
             <TimeSlider
               timeRange={timeRange}

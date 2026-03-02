@@ -101,13 +101,13 @@ function LayerControl({ layers, activeLayers, onToggle, trafficSublayers, onTogg
     return eventSublayers.counts || {};
   }, [eventSublayers]);
 
-  const trafficLayer = layers.find((l) => l.id === 'traffic');
   const isTrafficActive = activeLayers.has('traffic');
   const isEventsActive = activeLayers.has('event');
 
   return (
     <div className="layer-control">
       <h2>Layers</h2>
+      <p className="control-help">Choose what appears on the map and expand groups for detailed filters.</p>
       <div className="layer-list">
         {layers.map((layer) => {
           if (layer.id === 'traffic') {
@@ -129,13 +129,16 @@ function LayerControl({ layers, activeLayers, onToggle, trafficSublayers, onTogg
                     className={`sublayer-toggle ${trafficExpanded ? 'expanded' : ''}`}
                     onClick={() => setTrafficExpanded(!trafficExpanded)}
                     title="Show traffic sub-layers"
+                    aria-expanded={trafficExpanded}
+                    aria-controls="traffic-sublayer-list"
+                    aria-label={trafficExpanded ? 'Collapse traffic sub-layers' : 'Expand traffic sub-layers'}
                   >
                     ▸
                   </button>
                 </div>
 
                 {trafficExpanded && isTrafficActive && (
-                  <div className="sublayer-list">
+                  <div className="sublayer-list" id="traffic-sublayer-list">
                     {TRAFFIC_SUBLAYERS.map((sub) => {
                       const count = sublayerCounts[sub.id] || 0;
                       const isActive = trafficSublayers?.active?.has(sub.id) ?? true;
@@ -177,13 +180,16 @@ function LayerControl({ layers, activeLayers, onToggle, trafficSublayers, onTogg
                     className={`sublayer-toggle ${eventsExpanded ? 'expanded' : ''}`}
                     onClick={() => setEventsExpanded(!eventsExpanded)}
                     title="Show event sub-layers"
+                    aria-expanded={eventsExpanded}
+                    aria-controls="event-sublayer-list"
+                    aria-label={eventsExpanded ? 'Collapse event sub-layers' : 'Expand event sub-layers'}
                   >
                     ▸
                   </button>
                 </div>
 
                 {eventsExpanded && isEventsActive && (
-                  <div className="sublayer-list">
+                  <div className="sublayer-list" id="event-sublayer-list">
                     {EVENT_SUBLAYERS.map((sub) => {
                       const count = eventSublayerCounts[sub.id] || 0;
                       const isActive = eventSublayers?.active?.has(sub.id) ?? true;

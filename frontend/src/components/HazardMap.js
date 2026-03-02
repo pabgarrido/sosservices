@@ -1,9 +1,24 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Circle, Rectangle, Popup, Tooltip, useMap } from 'react-leaflet';
 
 // Portugal center coordinates
 const PORTUGAL_CENTER = [39.5, -8.0];
 const PORTUGAL_ZOOM = 7;
+
+const MAP_LAYERS = {
+  baseDetailed: {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  },
+  labels: {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  },
+  railways: {
+    url: 'https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenRailwayMap contributors',
+  },
+};
 
 // Color mapping for event types
 const EVENT_COLORS = {
@@ -69,17 +84,32 @@ const GRID_CELL_DEG = 0.25;
 
 function FlyToAlert({ alert }) {
   const map = useMap();
-  if (alert) {
+  const lastAlertId = useRef(null);
+
+  useEffect(() => {
+    if (!alert?.id || !alert?.location) return;
+    if (lastAlertId.current === alert.id) return;
+
     map.flyTo([alert.location.lat, alert.location.lng], 10, { duration: 1.5 });
-  }
+    lastAlertId.current = alert.id;
+  }, [alert, map]);
+
   return null;
 }
 
 function FlyToLocation({ location }) {
   const map = useMap();
-  if (location) {
+  const lastLocationKey = useRef('');
+
+  useEffect(() => {
+    if (!location) return;
+    const key = `${location.lat},${location.lng}`;
+    if (lastLocationKey.current === key) return;
+
     map.flyTo([location.lat, location.lng], 12, { duration: 1.2 });
-  }
+    lastLocationKey.current = key;
+  }, [location, map]);
+
   return null;
 }
 
@@ -91,7 +121,7 @@ function scoreToColor(score) {
   return '#2ecc71';
 }
 
-function HazardMap({ events, alerts, selectedAlert, riskZones, showRiskZones, hazardScoreMap, timePosition, flyToLocation }) {
+function HazardMap({ events, alerts, selectedAlert, riskZones, showRiskZones, hazardScoreMap, timePosition, flyToLocation, mapDetailMode = 'high' }) {
   // Memoize event markers
   const eventMarkers = useMemo(() => {
     return events.map((event) => {
@@ -262,9 +292,28 @@ function HazardMap({ events, alerts, selectedAlert, riskZones, showRiskZones, ha
       maxZoom={18}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={mapDetailMode === 'high'
+          ? MAP_LAYERS.baseDetailed.attribution
+          : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
+        url={mapDetailMode === 'high'
+          ? MAP_LAYERS.baseDetailed.url
+          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
       />
+
+      {mapDetailMode === 'high' && (
+        <>
+          <TileLayer
+            attribution={MAP_LAYERS.railways.attribution}
+            url={MAP_LAYERS.railways.url}
+            opacity={0.35}
+          />
+          <TileLayer
+            attribution={MAP_LAYERS.labels.attribution}
+            url={MAP_LAYERS.labels.url}
+            opacity={0.95}
+          />
+        </>
+      )}
 
       {zoneRects}
       {alertCircles}
