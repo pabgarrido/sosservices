@@ -33,6 +33,7 @@ class DataStore:
 
     def __init__(self):
         self.events: Dict[str, GeoEvent] = {}
+        self._adapter_event_ids: Dict[str, set[str]] = {}
         self.alerts: Dict[str, HazardAlert] = {}
         self.scored_events: list = []
         self.risk_zones: list = []
@@ -40,10 +41,21 @@ class DataStore:
         self._lock = asyncio.Lock()
         self.last_correlation_run: datetime | None = None
 
-    async def upsert_events(self, events: List[GeoEvent]):
+    async def replace_adapter_events(self, adapter_name: str, events: List[GeoEvent]):
+        """Replace all events owned by an adapter with the latest fetch result."""
         async with self._lock:
+            previous_ids = self._adapter_event_ids.get(adapter_name, set())
+            current_ids = {event.id for event in events}
+
+            # Remove events that disappeared from this adapter's latest fetch
+            for removed_id in previous_ids - current_ids:
+                self.events.pop(removed_id, None)
+
+            # Upsert current events
             for event in events:
                 self.events[event.id] = event
+
+            self._adapter_event_ids[adapter_name] = current_ids
 
     async def get_all_events(self) -> List[GeoEvent]:
         async with self._lock:
@@ -86,12 +98,20 @@ class DataStore:
             return dict(self.analytics_summary)
 
     async def clear_stale(self, max_age_hours: int = 24):
-        """Remove events older than max_age_hours."""
+        """Remove inactive or expired events and old stale entries."""
         async with self._lock:
-            cutoff = datetime.utcnow()
+            now = datetime.utcnow()
             to_remove = []
             for eid, event in self.events.items():
-                age = (cutoff - event.start_time).total_seconds() / 3600
+                if not event.active:
+                    to_remove.append(eid)
+                    continue
+
+                if event.end_time and event.end_time < now:
+                    to_remove.append(eid)
+                    continue
+
+                age = (now - event.start_time).total_seconds() / 3600
                 if age > max_age_hours:
                     to_remove.append(eid)
             for eid in to_remove:
@@ -120,6 +140,7 @@ class IngestionScheduler:
         self.scoring_engine = HazardScoringEngine()
         self._tasks: List[asyncio.Task] = []
         self._running = False
+        self._refresh_lock = asyncio.Lock()
 
     async def start(self):
         """Start all polling loops."""
@@ -166,6 +187,9 @@ class IngestionScheduler:
         self._running = False
         for task in self._tasks:
             task.cancel()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+            self._tasks.clear()
         for adapter in self.adapters.values():
             await adapter.close()
         logger.info("Ingestion scheduler stopped")
@@ -175,12 +199,17 @@ class IngestionScheduler:
         for name, adapter in self.adapters.items():
             try:
                 events = await adapter.safe_fetch()
-                await data_store.upsert_events(events)
+                await data_store.replace_adapter_events(name, events)
             except Exception as e:
                 logger.error(f"Initial fetch for {name} failed: {e}")
 
         # Run correlation after initial fetch
         await self._run_correlation()
+
+    async def refresh_now(self):
+        """Public, concurrency-safe manual refresh trigger."""
+        async with self._refresh_lock:
+            await self._fetch_all()
 
     async def _poll_loop(self, adapter_name: str, interval: int):
         """Polling loop for a single adapter."""
@@ -189,7 +218,7 @@ class IngestionScheduler:
                 await asyncio.sleep(interval)
                 adapter = self.adapters[adapter_name]
                 events = await adapter.safe_fetch()
-                await data_store.upsert_events(events)
+                await data_store.replace_adapter_events(adapter_name, events)
             except asyncio.CancelledError:
                 break
             except Exception as e:

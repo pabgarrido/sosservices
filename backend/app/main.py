@@ -45,11 +45,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Parse configured origins
+cors_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+allow_credentials = settings.cors_allow_credentials
+if "*" in cors_origins and allow_credentials:
+    logger.warning("CORS '*' with credentials is invalid in browsers; forcing allow_credentials=False")
+    allow_credentials = False
+
 # CORS — allow frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
-    allow_credentials=True,
+    allow_origins=cors_origins or ["http://localhost:3000"],
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

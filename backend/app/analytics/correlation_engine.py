@@ -6,7 +6,7 @@ the combination of multiple factors creates elevated risk. It generates
 HazardAlerts when correlation rules are triggered.
 """
 
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict
 from datetime import datetime, timedelta
 from itertools import combinations
 import hashlib
@@ -19,6 +19,26 @@ from app.models import (
 from app.config import settings
 
 logger = logging.getLogger("analytics.correlation")
+
+
+SEVERITY_RANK = {
+    Severity.LOW: 0,
+    Severity.MEDIUM: 1,
+    Severity.HIGH: 2,
+    Severity.CRITICAL: 3,
+}
+
+HAZARD_LEVEL_RANK = {
+    HazardLevel.NONE: 0,
+    HazardLevel.WATCH: 1,
+    HazardLevel.WARNING: 2,
+    HazardLevel.DANGER: 3,
+    HazardLevel.EXTREME: 4,
+}
+
+
+def severity_at_least(severity: Severity, minimum: Severity) -> bool:
+    return SEVERITY_RANK.get(severity, 0) >= SEVERITY_RANK.get(minimum, 0)
 
 
 def haversine_km(loc1: Location, loc2: Location) -> float:
@@ -88,7 +108,10 @@ class CorrelationEngine:
 
         fires = [e for e in events if e.type == EventType.EMERGENCY
                  and e.category in ("wildfire", "wildfire_detection")]
-        weather = [e for e in events if e.type == EventType.WEATHER and e.severity >= Severity.MEDIUM]
+        weather = [
+            e for e in events
+            if e.type == EventType.WEATHER and severity_at_least(e.severity, Severity.MEDIUM)
+        ]
 
         for fire in fires:
             for wx in weather:
@@ -186,8 +209,12 @@ class CorrelationEngine:
         rain_events = [
             e for e in events
             if e.type == EventType.WEATHER
-            and e.category in ("heavy_rain_risk", "weather_warning_precipitation", "weather_warning_heavy rain")
-            and e.severity >= Severity.MEDIUM
+            and e.category in (
+                "heavy_rain_risk",
+                "weather_warning_precipitation",
+                "weather_warning_heavy_rain",
+            )
+            and severity_at_least(e.severity, Severity.MEDIUM)
         ]
 
         for rain in rain_events:
@@ -197,7 +224,7 @@ class CorrelationEngine:
             except (ValueError, TypeError):
                 precip_val = 0
 
-            if precip_val > 70 or rain.severity >= Severity.HIGH:
+            if precip_val > 70 or severity_at_least(rain.severity, Severity.HIGH):
                 level = HazardLevel.WARNING
                 if rain.severity == Severity.CRITICAL:
                     level = HazardLevel.DANGER
@@ -338,7 +365,7 @@ class CorrelationEngine:
         heat_events = [
             e for e in events
             if e.type == EventType.WEATHER and e.category == "extreme_heat"
-            and e.severity >= Severity.HIGH
+            and severity_at_least(e.severity, Severity.HIGH)
         ]
         fires = [e for e in events if e.type == EventType.EMERGENCY
                  and "fire" in e.category.lower()]
@@ -382,6 +409,6 @@ class CorrelationEngine:
         seen: Dict[str, HazardAlert] = {}
         for alert in alerts:
             key = "_".join(sorted(alert.contributing_events))
-            if key not in seen or alert.level.value > seen[key].level.value:
+            if key not in seen or HAZARD_LEVEL_RANK.get(alert.level, 0) > HAZARD_LEVEL_RANK.get(seen[key].level, 0):
                 seen[key] = alert
         return list(seen.values())

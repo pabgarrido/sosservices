@@ -3,6 +3,7 @@
 from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Query
+from fastapi import HTTPException
 
 from app.models import GeoEvent, HazardAlert, MapLayer, EventType, SystemStatus
 from app.ingestion.scheduler import data_store, scheduler
@@ -15,13 +16,13 @@ _windowed_scorer = HazardScoringEngine()
 
 
 def _parse_time(val: Optional[str], default) -> datetime:
-    """Parse ISO8601 string to datetime, returning default on failure."""
+    """Parse ISO8601 string to datetime, returning default if missing."""
     if not val:
         return default
     try:
         return datetime.fromisoformat(val)
     except ValueError:
-        return default
+        raise HTTPException(status_code=422, detail=f"Invalid ISO8601 datetime: {val}")
 
 
 def _filter_events_by_time(events: List[GeoEvent], time_start: Optional[str], time_end: Optional[str]) -> List[GeoEvent]:
@@ -255,5 +256,5 @@ async def get_status():
 @router.post("/refresh")
 async def force_refresh():
     """Force an immediate refresh of all data sources."""
-    await scheduler._fetch_all()
+    await scheduler.refresh_now()
     return {"message": "Data refresh triggered", "event_count": len(await data_store.get_all_events())}

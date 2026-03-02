@@ -63,6 +63,17 @@ WMO_CODES = {
     99: ("Thunderstorm with heavy hail", "Thunderstorm"),
 }
 
+SEVERITY_RANK = {
+    Severity.LOW: 0,
+    Severity.MEDIUM: 1,
+    Severity.HIGH: 2,
+    Severity.CRITICAL: 3,
+}
+
+
+def promote_severity(current: Severity, candidate: Severity) -> Severity:
+    return candidate if SEVERITY_RANK.get(candidate, 0) > SEVERITY_RANK.get(current, 0) else current
+
 
 class OpenWeatherAdapter(BaseAdapter):
     """Fetches current weather conditions from OpenWeatherMap or Open-Meteo (keyless fallback)."""
@@ -119,16 +130,16 @@ class OpenWeatherAdapter(BaseAdapter):
                     severity = Severity.HIGH
                     category = "extreme_heat"
                 if wind_speed > 15:  # m/s (~54 km/h)
-                    severity = max(severity, Severity.MEDIUM)
+                    severity = promote_severity(severity, Severity.MEDIUM)
                     category = "strong_wind"
                 if wind_speed > 25:  # m/s (~90 km/h)
                     severity = Severity.HIGH
                     category = "storm_wind"
                 if weather_main == "Thunderstorm":
-                    severity = max(severity, Severity.MEDIUM)
+                    severity = promote_severity(severity, Severity.MEDIUM)
                     category = "thunderstorm"
                 if humidity < 20 and temp > 30:
-                    severity = max(severity, Severity.MEDIUM)
+                    severity = promote_severity(severity, Severity.MEDIUM)
                     category = "fire_weather"
 
                 event_id = hashlib.md5(
@@ -206,19 +217,19 @@ class OpenWeatherAdapter(BaseAdapter):
                         fc_severity = Severity.HIGH
                         fc_category = "forecast_extreme_heat"
                     if fc_wind > 15:
-                        fc_severity = max(fc_severity, Severity.MEDIUM)
+                        fc_severity = promote_severity(fc_severity, Severity.MEDIUM)
                         fc_category = "forecast_strong_wind"
                     if fc_wind > 25:
                         fc_severity = Severity.HIGH
                         fc_category = "forecast_storm_wind"
                     if fc_main == "Thunderstorm":
-                        fc_severity = max(fc_severity, Severity.MEDIUM)
+                        fc_severity = promote_severity(fc_severity, Severity.MEDIUM)
                         fc_category = "forecast_thunderstorm"
                     if fc_precip > 70:
-                        fc_severity = max(fc_severity, Severity.MEDIUM)
+                        fc_severity = promote_severity(fc_severity, Severity.MEDIUM)
                         fc_category = "forecast_heavy_rain"
                     if fc_humid < 20 and fc_temp > 30:
-                        fc_severity = max(fc_severity, Severity.MEDIUM)
+                        fc_severity = promote_severity(fc_severity, Severity.MEDIUM)
                         fc_category = "forecast_fire_weather"
 
                     hours_ahead = round((fc_time - now).total_seconds() / 3600)
@@ -297,16 +308,16 @@ class OpenWeatherAdapter(BaseAdapter):
                     severity = Severity.HIGH
                     category = "extreme_heat"
                 if wind_speed > 15:  # m/s (~54 km/h)
-                    severity = max(severity, Severity.MEDIUM)
+                    severity = promote_severity(severity, Severity.MEDIUM)
                     category = "strong_wind"
                 if wind_speed > 25:  # m/s (~90 km/h)
                     severity = Severity.HIGH
                     category = "storm_wind"
                 if weather_main in ("Thunderstorm",):
-                    severity = max(severity, Severity.MEDIUM)
+                    severity = promote_severity(severity, Severity.MEDIUM)
                     category = "thunderstorm"
                 if humidity < 20 and temp > 30:
-                    severity = max(severity, Severity.MEDIUM)
+                    severity = promote_severity(severity, Severity.MEDIUM)
                     category = "fire_weather"
 
                 event_id = hashlib.md5(

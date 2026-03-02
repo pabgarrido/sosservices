@@ -3,19 +3,28 @@
 import asyncio
 import json
 import logging
+import hashlib
 from typing import Set
 from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.ingestion.scheduler import data_store
-from app.models import GeoEvent, HazardAlert
-
 logger = logging.getLogger("api.websocket")
 router = APIRouter()
 
 # Connected clients
 clients: Set[WebSocket] = set()
+
+
+def _payload_signature(events, alerts) -> str:
+    """Stable signature for websocket payload change detection."""
+    payload = {
+        "events": sorted((e.model_dump(mode="json") for e in events), key=lambda x: x.get("id", "")),
+        "alerts": sorted((a.model_dump(mode="json") for a in alerts), key=lambda x: x.get("id", "")),
+    }
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode()).hexdigest()
 
 
 async def broadcast(message: dict):
@@ -55,8 +64,7 @@ async def websocket_endpoint(websocket: WebSocket):
         }, default=str))
 
         # Keep connection alive and send updates
-        last_event_count = len(events)
-        last_alert_count = len(alerts)
+        last_signature = _payload_signature(events, alerts)
 
         while True:
             # Wait for client messages or timeout for periodic push
@@ -84,18 +92,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 events = await data_store.get_all_events()
                 alerts = await data_store.get_all_alerts()
 
-                current_event_count = len(events)
-                current_alert_count = len(alerts)
+                current_signature = _payload_signature(events, alerts)
 
-                if current_event_count != last_event_count or current_alert_count != last_alert_count:
+                if current_signature != last_signature:
                     await websocket.send_text(json.dumps({
                         "type": "update",
                         "events": [e.model_dump() for e in events],
                         "alerts": [a.model_dump() for a in alerts],
                         "timestamp": datetime.utcnow().isoformat(),
                     }, default=str))
-                    last_event_count = current_event_count
-                    last_alert_count = current_alert_count
+                    last_signature = current_signature
                 else:
                     # Send heartbeat
                     await websocket.send_text(json.dumps({

@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     # API Keys
     openweathermap_api_key: Optional[str] = None
     nasa_firms_api_key: Optional[str] = None
-    predicthq_api_key: Optional[str] = None
 
     # IPMA (no key needed)
     ipma_base_url: str = "https://api.ipma.pt/open-data"
@@ -33,6 +32,10 @@ class Settings(BaseSettings):
     app_port: int = 8000
     app_env: str = "development"
     log_level: str = "INFO"
+
+    # CORS
+    cors_allow_origins: str = "http://localhost:3000"
+    cors_allow_credentials: bool = True
 
     # Portugal bounding box
     pt_lat_min: float = 36.96
