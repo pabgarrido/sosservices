@@ -8,8 +8,10 @@ import StatusBar from './components/StatusBar';
 import useWebSocket from './hooks/useWebSocket';
 import { fetchEvents, fetchAlerts, fetchLayers, fetchStatus, fetchHazardScores, fetchRiskZones, fetchAnalyticsSummary, fetchTimeRange } from './services/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000/ws';
+const API_URL = process.env.REACT_APP_API_URL || '';
+const WS_PROTOCOL = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_HOST = typeof window !== 'undefined' ? window.location.host : 'localhost';
+const WS_URL = process.env.REACT_APP_WS_URL || `${WS_PROTOCOL}//${WS_HOST}/ws`;
 
 function App() {
   const [events, setEvents] = useState([]);
@@ -86,22 +88,20 @@ function App() {
   // Initial data fetch (fallback if WS not available)
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const [evts, alrts, lyrs, sts] = await Promise.all([
-          fetchEvents(API_URL),
-          fetchAlerts(API_URL),
-          fetchLayers(API_URL),
-          fetchStatus(API_URL),
-        ]);
-        setEvents(evts);
-        setAlerts(alrts);
-        setLayers(lyrs);
-        setStatus(sts);
-      } catch (err) {
-        console.error('Failed to load initial data:', err);
-      } finally {
-        setIsInitialLoading(false);
+      const [evtsResult, alrtsResult, lyrsResult, stsResult] = await Promise.allSettled([
+        fetchEvents(API_URL),
+        fetchAlerts(API_URL),
+        fetchLayers(API_URL),
+        fetchStatus(API_URL),
+      ]);
+      if (evtsResult.status === 'fulfilled') setEvents(evtsResult.value);
+      if (alrtsResult.status === 'fulfilled') setAlerts(alrtsResult.value);
+      if (lyrsResult.status === 'fulfilled') setLayers(lyrsResult.value);
+      if (stsResult.status === 'fulfilled') setStatus(stsResult.value);
+      if ([evtsResult, alrtsResult, lyrsResult, stsResult].some((r) => r.status === 'rejected')) {
+        console.warn('Some initial data failed to load');
       }
+      setIsInitialLoading(false);
 
       // Load analytics + time range data (non-blocking)
       try {
