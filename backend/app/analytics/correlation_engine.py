@@ -86,7 +86,8 @@ class CorrelationEngine:
         """RULE: Active fire + adverse weather conditions nearby = elevated risk."""
         alerts = []
 
-        fires = [e for e in events if e.type == EventType.FIRE]
+        fires = [e for e in events if e.type == EventType.EMERGENCY
+                 and e.category in ("wildfire", "wildfire_detection")]
         weather = [e for e in events if e.type == EventType.WEATHER and e.severity >= Severity.MEDIUM]
 
         for fire in fires:
@@ -230,7 +231,7 @@ class CorrelationEngine:
         """RULE: Multiple fires in close proximity = potential fire front."""
         alerts = []
 
-        fires = [e for e in events if e.type in (EventType.FIRE, EventType.EMERGENCY)
+        fires = [e for e in events if e.type == EventType.EMERGENCY
                  and e.category in ("wildfire_detection", "wildfire")]
 
         if len(fires) < 2:
@@ -339,7 +340,7 @@ class CorrelationEngine:
             if e.type == EventType.WEATHER and e.category == "extreme_heat"
             and e.severity >= Severity.HIGH
         ]
-        fires = [e for e in events if e.type in (EventType.FIRE, EventType.EMERGENCY)
+        fires = [e for e in events if e.type == EventType.EMERGENCY
                  and "fire" in e.category.lower()]
 
         for heat in heat_events:

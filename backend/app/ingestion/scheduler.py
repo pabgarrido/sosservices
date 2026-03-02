@@ -13,8 +13,11 @@ from app.services import (
     NASAFIRMSAdapter,
     ProCivAdapter,
     OpenWeatherAdapter,
+    TrafficAdapter,
+    EventsAdapter,
 )
 from app.analytics.correlation_engine import CorrelationEngine
+from app.analytics.hazard_scoring import HazardScoringEngine, ScoredEvent, RiskZone
 from app.models import GeoEvent, HazardAlert, SystemStatus
 from app.config import settings
 
@@ -31,6 +34,9 @@ class DataStore:
     def __init__(self):
         self.events: Dict[str, GeoEvent] = {}
         self.alerts: Dict[str, HazardAlert] = {}
+        self.scored_events: list = []
+        self.risk_zones: list = []
+        self.analytics_summary: dict = {}
         self._lock = asyncio.Lock()
         self.last_correlation_run: datetime | None = None
 
@@ -54,6 +60,30 @@ class DataStore:
     async def get_all_alerts(self) -> List[HazardAlert]:
         async with self._lock:
             return list(self.alerts.values())
+
+    async def set_scored_events(self, scored: list):
+        async with self._lock:
+            self.scored_events = scored
+
+    async def get_scored_events(self) -> list:
+        async with self._lock:
+            return list(self.scored_events)
+
+    async def set_risk_zones(self, zones: list):
+        async with self._lock:
+            self.risk_zones = zones
+
+    async def get_risk_zones(self) -> list:
+        async with self._lock:
+            return list(self.risk_zones)
+
+    async def set_analytics_summary(self, summary: dict):
+        async with self._lock:
+            self.analytics_summary = summary
+
+    async def get_analytics_summary(self) -> dict:
+        async with self._lock:
+            return dict(self.analytics_summary)
 
     async def clear_stale(self, max_age_hours: int = 24):
         """Remove events older than max_age_hours."""
@@ -83,8 +113,11 @@ class IngestionScheduler:
             "nasa_firms": NASAFIRMSAdapter(),
             "prociv": ProCivAdapter(),
             "openweather": OpenWeatherAdapter(),
+            "traffic": TrafficAdapter(),
+            "events": EventsAdapter(),
         }
         self.correlation_engine = CorrelationEngine()
+        self.scoring_engine = HazardScoringEngine()
         self._tasks: List[asyncio.Task] = []
         self._running = False
 
@@ -107,6 +140,12 @@ class IngestionScheduler:
         )
         self._tasks.append(
             asyncio.create_task(self._poll_loop("openweather", settings.weather_poll_interval))
+        )
+        self._tasks.append(
+            asyncio.create_task(self._poll_loop("traffic", settings.traffic_poll_interval))
+        )
+        self._tasks.append(
+            asyncio.create_task(self._poll_loop("events", settings.events_poll_interval))
         )
 
         # Correlation engine loop
@@ -170,12 +209,28 @@ class IngestionScheduler:
                 await asyncio.sleep(30)
 
     async def _run_correlation(self):
-        """Run correlation engine on current events."""
+        """Run correlation engine and hazard scoring on current events."""
         events = await data_store.get_all_events()
+
+        # Run correlation rules (existing)
         alerts = self.correlation_engine.analyze(events)
         await data_store.set_alerts(alerts)
+
+        # Run hazard scoring (new predictive analytics)
+        scored = self.scoring_engine.score_events(events)
+        await data_store.set_scored_events(scored)
+
+        zones = self.scoring_engine.compute_risk_zones(events, scored)
+        await data_store.set_risk_zones(zones)
+
+        summary = self.scoring_engine.get_summary(scored)
+        await data_store.set_analytics_summary(summary)
+
         data_store.last_correlation_run = datetime.utcnow()
-        logger.info(f"Correlation: {len(events)} events → {len(alerts)} alerts")
+        logger.info(
+            f"Analytics: {len(events)} events → {len(alerts)} alerts, "
+            f"{len(scored)} scored, {len(zones)} risk zones"
+        )
 
     async def _cleanup_loop(self):
         """Periodically remove stale events."""

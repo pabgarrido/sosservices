@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # IPMA (no key needed)
     ipma_base_url: str = "https://api.ipma.pt/open-data"
 
+    # TomTom (optional, free tier)
+    tomtom_api_key: Optional[str] = None
+
+    # Ticketmaster Discovery API (free tier, developer.ticketmaster.com)
+    ticketmaster_api_key: Optional[str] = None
+
     # Proteção Civil
     prociv_base_url: str = "https://www.prociv.pt"
 

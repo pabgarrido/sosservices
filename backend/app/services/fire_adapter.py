@@ -20,7 +20,12 @@ class NASAFIRMSAdapter(BaseAdapter):
 
     async def fetch(self) -> List[GeoEvent]:
         if not self.api_key:
-            self.logger.warning("NASA FIRMS API key not configured")
+            self.logger.info(
+                "NASA FIRMS API key not set (NASA_FIRMS_API_KEY env var). "
+                "Register free at https://firms.modaps.eosdis.nasa.gov/api/. "
+                "Satellite fire data will be unavailable until configured. "
+                "Fire data is still available via ProCiv/fogos.pt adapter."
+            )
             return []
 
         events = []
@@ -76,7 +81,7 @@ class NASAFIRMSAdapter(BaseAdapter):
 
                     events.append(GeoEvent(
                         id=event_id,
-                        type=EventType.FIRE,
+                        type=EventType.EMERGENCY,
                         category="wildfire_detection",
                         title=f"Fire detected (FRP: {frp:.1f} MW)",
                         description=(
