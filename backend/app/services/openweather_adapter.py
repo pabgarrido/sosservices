@@ -1,7 +1,8 @@
 """Weather Adapter — Current conditions from OpenWeatherMap or Open-Meteo."""
 
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import hashlib
 
 from app.services.base_adapter import BaseAdapter
@@ -92,6 +93,7 @@ class OpenWeatherAdapter(BaseAdapter):
     async def _fetch_open_meteo(self) -> List[GeoEvent]:
         """Fetch current weather + hourly forecast from Open-Meteo API (free, no key required)."""
         events = []
+        lisbon_tz = ZoneInfo("Europe/Lisbon")
 
         for loc in MONITOR_LOCATIONS:
             try:
@@ -189,7 +191,11 @@ class OpenWeatherAdapter(BaseAdapter):
                 # Sample every 3 hours to avoid flooding (16 forecast events per location)
                 for i in range(0, min(len(times), 48), 3):
                     try:
-                        fc_time = datetime.fromisoformat(times[i])
+                        parsed_time = datetime.fromisoformat(times[i])
+                        if parsed_time.tzinfo is None:
+                            fc_time = parsed_time.replace(tzinfo=lisbon_tz).astimezone(timezone.utc).replace(tzinfo=None)
+                        else:
+                            fc_time = parsed_time.astimezone(timezone.utc).replace(tzinfo=None)
                     except (ValueError, IndexError):
                         continue
 

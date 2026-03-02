@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 
 /**
  * TimeSlider — Day/Time picker for navigating current + forecast data.
@@ -30,8 +30,15 @@ function formatWeekday(offset) {
 }
 
 function TimeSlider({ timeRange, value, onChange }) {
-  const now = useMemo(() => new Date(), []);
+  const [now, setNow] = useState(() => new Date());
   const isLive = !value;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Derive selected day offset and hour from the current value
   const { selectedDay, selectedHour } = useMemo(() => {
@@ -53,10 +60,10 @@ function TimeSlider({ timeRange, value, onChange }) {
   const maxDays = useMemo(() => {
     if (!timeRange?.max_time) return 5;
     const maxDate = new Date(timeRange.max_time);
-    const todayStart = new Date();
+    const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     return Math.min(Math.max(Math.ceil((maxDate - todayStart) / 86400000), 1), 5);
-  }, [timeRange]);
+  }, [timeRange, now]);
 
   const forecastCount = timeRange?.forecast_events || 0;
 

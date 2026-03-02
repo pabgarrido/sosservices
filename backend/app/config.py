@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Ticketmaster Discovery API (free tier, developer.ticketmaster.com)
     ticketmaster_api_key: Optional[str] = None
 
+    # football-data.org API (optional)
+    football_data_api_key: Optional[str] = None
+
     # Proteção Civil
     prociv_base_url: str = "https://www.prociv.pt"
 

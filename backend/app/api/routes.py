@@ -2,6 +2,7 @@
 
 from typing import List, Optional
 from datetime import datetime, timedelta
+from datetime import timezone
 from fastapi import APIRouter, Query
 from fastapi import HTTPException
 
@@ -20,7 +21,12 @@ def _parse_time(val: Optional[str], default) -> datetime:
     if not val:
         return default
     try:
-        return datetime.fromisoformat(val)
+        parsed = datetime.fromisoformat(val)
+        # Normalize aware datetimes (e.g. trailing Z) to naive UTC so they
+        # can be compared against stored event datetimes.
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid ISO8601 datetime: {val}")
 

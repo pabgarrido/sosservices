@@ -11,7 +11,8 @@ Sources:
   3. Portuguese Football / Sports schedule (open data)
      - Upcoming matches at major stadiums
 
-All data is real — no simulated events.
+Primary event data is real. When an upstream provider is unavailable,
+the adapter emits explicit fallback venue markers.
 """
 
 from typing import List
@@ -100,6 +101,7 @@ class EventsAdapter(BaseAdapter):
     def __init__(self):
         super().__init__("events")
         self.ticketmaster_api_key = getattr(settings, "ticketmaster_api_key", None)
+        self.football_data_api_key = getattr(settings, "football_data_api_key", None)
 
     async def fetch(self) -> List[GeoEvent]:
         """Fetch events from all configured sources."""
@@ -367,10 +369,15 @@ class EventsAdapter(BaseAdapter):
 
         # Try football-data.org free tier (Primeira Liga = PPL, code 2017)
         try:
+            request_kwargs = {
+                "params": {"status": "SCHEDULED"},
+            }
+            if self.football_data_api_key:
+                request_kwargs["headers"] = {"X-Auth-Token": self.football_data_api_key}
+
             resp = await self._client.get(
                 "https://api.football-data.org/v4/competitions/PPL/matches",
-                params={"status": "SCHEDULED"},
-                headers={"X-Auth-Token": ""},  # Free tier allows some requests
+                **request_kwargs,
             )
 
             if resp.status_code == 200:
@@ -453,16 +460,14 @@ class EventsAdapter(BaseAdapter):
             return None
 
     def _generate_stadium_events(self) -> List[GeoEvent]:
-        """Generate upcoming venue events from known Portuguese venues and stadiums.
+        """Generate fallback venue markers for major Portuguese event infrastructure.
 
-        When football-data.org is unavailable, we check for events at major
-        Portuguese venues using OSM data we already know about.
+        Used only when upstream sports/event schedules are unavailable.
         """
         events: List[GeoEvent] = []
         now = datetime.utcnow()
 
-        # Major venues always have something happening — create markers
-        # so users know where the event infrastructure is
+        # Emit explicit fallback markers so UI/analytics can treat them differently.
         for venue in PT_VENUES:
             uid = hashlib.md5(f"venue_{venue['name']}".encode()).hexdigest()[:12]
 
@@ -478,17 +483,18 @@ class EventsAdapter(BaseAdapter):
                 id=f"venue_{uid}",
                 type=EventType.EVENT,
                 category=category,
-                title=f"🎭 {venue['name']}",
-                description=f"Venue de {venue['type'].replace('_', ' ')} em {venue['city']} — consulte bilheteiras para programação",
+                title=f"🏟 Venue marker: {venue['name']}",
+                description=f"Fallback marker for {venue['type'].replace('_', ' ')} venue in {venue['city']}",
                 location=Location(lat=venue["lat"], lng=venue["lng"]),
                 radius_km=0.3,
                 severity=Severity.LOW,
-                source="venues_pt",
+                source="events_fallback",
                 start_time=now,
                 active=True,
                 metadata={
                     "city": venue["city"],
                     "type": venue["type"],
+                    "is_fallback": True,
                 },
             ))
 

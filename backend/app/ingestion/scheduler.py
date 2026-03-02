@@ -199,6 +199,8 @@ class IngestionScheduler:
         for name, adapter in self.adapters.items():
             try:
                 events = await adapter.safe_fetch()
+                if not adapter.healthy:
+                    continue
                 await data_store.replace_adapter_events(name, events)
             except Exception as e:
                 logger.error(f"Initial fetch for {name} failed: {e}")
@@ -218,6 +220,8 @@ class IngestionScheduler:
                 await asyncio.sleep(interval)
                 adapter = self.adapters[adapter_name]
                 events = await adapter.safe_fetch()
+                if not adapter.healthy:
+                    continue
                 await data_store.replace_adapter_events(adapter_name, events)
             except asyncio.CancelledError:
                 break

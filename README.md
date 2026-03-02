@@ -33,7 +33,7 @@ A real-time geospatial hazard correlation platform for Portugal. Aggregates live
 | Proteção Civil (prociv.pt) | Active emergencies | ~5 min |
 | OpenWeatherMap / Open-Meteo | Current weather + forecast | ~10 min |
 | TomTom + OSM Overpass | Traffic flow / incidents / roadworks | ~5 min |
-| Ticketmaster + Nager.Date | Events + public holidays | ~1 hour |
+| Ticketmaster + Nager.Date + football-data.org | Events + public holidays + sports schedule | ~1 hour |
 | OpenStreetMap + Leaflet | Base map | Real-time tiles |
 
 ## Hazard Correlation Examples
