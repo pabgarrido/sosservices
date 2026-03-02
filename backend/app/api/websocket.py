@@ -58,10 +58,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
         await websocket.send_text(json.dumps({
             "type": "snapshot",
-            "events": [e.model_dump() for e in events],
-            "alerts": [a.model_dump() for a in alerts],
+            "events": [e.model_dump(mode="json") for e in events],
+            "alerts": [a.model_dump(mode="json") for a in alerts],
             "timestamp": datetime.utcnow().isoformat(),
-        }, default=str))
+        }))
 
         # Keep connection alive and send updates
         last_signature = _payload_signature(events, alerts)
@@ -80,10 +80,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         alerts = await data_store.get_all_alerts()
                         await websocket.send_text(json.dumps({
                             "type": "snapshot",
-                            "events": [e.model_dump() for e in events],
-                            "alerts": [a.model_dump() for a in alerts],
+                            "events": [e.model_dump(mode="json") for e in events],
+                            "alerts": [a.model_dump(mode="json") for a in alerts],
                             "timestamp": datetime.utcnow().isoformat(),
-                        }, default=str))
+                        }))
                 except json.JSONDecodeError:
                     pass
 
@@ -97,10 +97,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 if current_signature != last_signature:
                     await websocket.send_text(json.dumps({
                         "type": "update",
-                        "events": [e.model_dump() for e in events],
-                        "alerts": [a.model_dump() for a in alerts],
+                        "events": [e.model_dump(mode="json") for e in events],
+                        "alerts": [a.model_dump(mode="json") for a in alerts],
                         "timestamp": datetime.utcnow().isoformat(),
-                    }, default=str))
+                    }))
                     last_signature = current_signature
                 else:
                     # Send heartbeat
