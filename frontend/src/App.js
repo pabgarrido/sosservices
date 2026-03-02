@@ -34,7 +34,7 @@ function App() {
   const [timePosition, setTimePosition] = useState(null); // null = "live"
   const [flyToLocation, setFlyToLocation] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [mapDetailMode, setMapDetailMode] = useState('high'); // 'standard' | 'high'
+  const [mapDetailMode, setMapDetailMode] = useState('dark'); // 'dark' | 'satellite'
   const [mapLegendVisible, setMapLegendVisible] = useState(() => {
     try {
       return localStorage.getItem('mapLegendVisible') !== 'false';
@@ -407,18 +407,18 @@ function App() {
                     <span className="map-detail-label">Map detail</span>
                     <div className="map-detail-buttons">
                       <button
-                        className={`map-detail-btn ${mapDetailMode === 'standard' ? 'active' : ''}`}
-                        onClick={() => setMapDetailMode('standard')}
-                        aria-pressed={mapDetailMode === 'standard'}
+                        className={`map-detail-btn ${mapDetailMode === 'dark' ? 'active' : ''}`}
+                        onClick={() => setMapDetailMode('dark')}
+                        aria-pressed={mapDetailMode === 'dark'}
                       >
-                        Standard
+                        Dark
                       </button>
                       <button
-                        className={`map-detail-btn ${mapDetailMode === 'high' ? 'active' : ''}`}
-                        onClick={() => setMapDetailMode('high')}
-                        aria-pressed={mapDetailMode === 'high'}
+                        className={`map-detail-btn ${mapDetailMode === 'satellite' ? 'active' : ''}`}
+                        onClick={() => setMapDetailMode('satellite')}
+                        aria-pressed={mapDetailMode === 'satellite'}
                       >
-                        High Detail
+                        Satellite
                       </button>
                     </div>
                   </div>
@@ -464,7 +464,7 @@ function App() {
           {mapLegendVisible && (
             <div className="map-detail-legend" aria-live="polite">
               <div className="map-detail-legend-header">
-                <strong>{mapDetailMode === 'high' ? 'High Detail Map' : 'Standard Map'}</strong>
+                <strong>{mapDetailMode === 'satellite' ? 'Satellite Map' : 'Dark Map'}</strong>
                 <button
                   className="map-detail-legend-close"
                   onClick={() => setMapLegendVisible(false)}
@@ -475,9 +475,9 @@ function App() {
                 </button>
               </div>
               <span>
-                {mapDetailMode === 'high'
-                  ? 'Road labels + rail lines enabled for precision analysis.'
-                  : 'Base map only for lighter rendering performance.'}
+                {mapDetailMode === 'satellite'
+                  ? 'Satellite imagery — real-world terrain and geography.'
+                  : 'Clean dark map — optimised for hazard and risk overlay visibility.'}
               </span>
             </div>
           )}

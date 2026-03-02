@@ -6,17 +6,17 @@ const PORTUGAL_CENTER = [39.5, -8.0];
 const PORTUGAL_ZOOM = 7;
 
 const MAP_LAYERS = {
-  baseDetailed: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
   },
-  labels: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  darkLabels: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '', // Attribution already included via dark base layer
   },
-  railways: {
-    url: 'https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenRailwayMap contributors',
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
   },
 };
 
@@ -254,7 +254,7 @@ function HazardMap({ events, alerts, selectedAlert, riskZones, showRiskZones, ha
         [zone.lat + halfCell, zone.lng + halfCell],
       ];
       const color = ZONE_COLORS[zone.hazard_level] || '#95a5a6';
-      const opacity = Math.min(0.08 + (zone.score / 100) * 0.25, 0.35);
+      const opacity = Math.min(0.15 + (zone.score / 100) * 0.45, 0.65);
 
       return (
         <Rectangle
@@ -265,7 +265,7 @@ function HazardMap({ events, alerts, selectedAlert, riskZones, showRiskZones, ha
             fillColor: color,
             fillOpacity: opacity,
             weight: 1,
-            opacity: 0.5,
+            opacity: 0.7,
           }}
         >
           <Tooltip direction="center" permanent={false}>
@@ -292,27 +292,20 @@ function HazardMap({ events, alerts, selectedAlert, riskZones, showRiskZones, ha
       maxZoom={18}
     >
       <TileLayer
-        attribution={mapDetailMode === 'high'
-          ? MAP_LAYERS.baseDetailed.attribution
-          : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
-        url={mapDetailMode === 'high'
-          ? MAP_LAYERS.baseDetailed.url
-          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
+        attribution={mapDetailMode === 'satellite'
+          ? MAP_LAYERS.satellite.attribution
+          : MAP_LAYERS.dark.attribution}
+        url={mapDetailMode === 'satellite'
+          ? MAP_LAYERS.satellite.url
+          : MAP_LAYERS.dark.url}
       />
 
-      {mapDetailMode === 'high' && (
-        <>
-          <TileLayer
-            attribution={MAP_LAYERS.railways.attribution}
-            url={MAP_LAYERS.railways.url}
-            opacity={0.35}
-          />
-          <TileLayer
-            attribution={MAP_LAYERS.labels.attribution}
-            url={MAP_LAYERS.labels.url}
-            opacity={0.95}
-          />
-        </>
+      {mapDetailMode !== 'satellite' && (
+        <TileLayer
+          attribution={MAP_LAYERS.darkLabels.attribution}
+          url={MAP_LAYERS.darkLabels.url}
+          opacity={0.9}
+        />
       )}
 
       {zoneRects}
